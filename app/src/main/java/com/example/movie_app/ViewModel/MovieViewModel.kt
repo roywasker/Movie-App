@@ -31,7 +31,8 @@ class MovieViewModel : ViewModel() {
     private var currentPage by mutableIntStateOf(1)
 
     //List of favorite movie
-    private val favoriteMovies = mutableListOf<Movie>()
+    private val _favoriteMovies = MutableStateFlow<List<Movie>>(emptyList())
+    val favoriteMovies: StateFlow<List<Movie>> = _favoriteMovies
 
 
     init {
@@ -70,11 +71,6 @@ class MovieViewModel : ViewModel() {
                         _movies.value += response.results   // add the response to the list
                         currentPage++
                     }
-                    "Favorites" -> {
-
-                        // Add all favorite list to the main list
-                        _movies.value = favoriteMovies
-                    }
                 }
             } catch (e: Exception) {
 
@@ -89,18 +85,23 @@ class MovieViewModel : ViewModel() {
     /**
      * A function to add movie to list of favorite movie
      */
-    fun addToFavorites(movie: Movie) {
-        if (!favoriteMovies.contains(movie)) {
-            favoriteMovies.add(movie)
+    fun addToFavorites(movieId : Int) {
+        val inFavorite = favoriteMovies.value.find { it.id == movieId } // Check if the movie is in the list.
+        val movie = movies.value.find { it.id == movieId }
+        if (inFavorite == null){
+            if (movie != null) {
+                _favoriteMovies.value += movie
+            }
         }
     }
 
     /**
      * A function to delete movie from list of favorite movie
      */
-    fun deleteFromFavorites(movie: Movie) {
-        if (favoriteMovies.contains(movie)) {
-            favoriteMovies.remove(movie)
-        }
+    fun deleteFromFavorites(movieId : Int) {
+        val updatedFavorites = favoriteMovies.value.filter { it.id != movieId } // find all movie without the movie to delete
+        val deleteMovie = favoriteMovies.value.filter { it.id == movieId } // find the movie to delete
+        _favoriteMovies.value = updatedFavorites
+        _movies.value+=deleteMovie
     }
 }

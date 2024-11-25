@@ -1,5 +1,6 @@
 package com.example.movie_app.Screen
 
+import android.app.Activity
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +19,7 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Card
 import androidx.compose.material.CircularProgressIndicator
+import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
@@ -52,14 +54,15 @@ import coil.size.Size
 import com.example.movie_app.ViewModel.MovieViewModel
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.navigation.NavHostController
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen() {
-    val viewModel: MovieViewModel = viewModel() // Get ViewModel instance
-
+fun HomeScreen(navController: NavHostController, viewModel: MovieViewModel) {
     var selectedCategory by remember { mutableStateOf("Popular") } // current category of movie
 
+    //current context
+    val context = LocalContext.current
     Scaffold(
         topBar = {
             TopAppBar(
@@ -76,7 +79,11 @@ fun HomeScreen() {
 
                 //set back arrow icon to go back screen
                 navigationIcon = {
-                    IconButton(onClick = {}) {
+                    IconButton(onClick = {
+                        if (context is Activity) { // Exit from app
+                            context.finish()
+                        }
+                    }) {
                         Icon(
                             imageVector = Icons.Rounded.ArrowBack,
                             contentDescription = "Back",
@@ -105,7 +112,7 @@ fun HomeScreen() {
             )
 
             // show all the movie by the category
-            MovieList(viewModel, selectedCategory)
+            MovieList(viewModel, selectedCategory , navController)
         }
     }
 }
@@ -113,14 +120,16 @@ fun HomeScreen() {
 /**
  * Present movie in card with all his data
  */
+@OptIn(ExperimentalMaterialApi::class)
 @Composable
-fun MovieItem(movie: Movie) {
+fun MovieItem(movie: Movie, navController: NavHostController) {
     Card(
         modifier = Modifier
             .padding(8.dp)
             .fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
-        elevation = 4.dp
+        elevation = 4.dp,
+        onClick ={navController.navigate("movieScreen/${movie.id}")} // Go to movie screen on click
     ) {
         Column(
             modifier = Modifier.padding(8.dp),
@@ -181,10 +190,14 @@ fun MovieItem(movie: Movie) {
  * Function to present all the movie in colum by 2 card in each raw
  */
 @Composable
-fun MovieList(viewModel: MovieViewModel, selectedCategory: String) {
+fun MovieList(viewModel: MovieViewModel, selectedCategory: String, navController: NavHostController) {
 
     //current movie list
-    val movies by viewModel.movies.collectAsState()
+    val movies by if (selectedCategory == "Favorites") {
+        viewModel.favoriteMovies.collectAsState()
+    }else{
+        viewModel.movies.collectAsState()
+    }
     val isLoading by viewModel.loading
 
     val listState = rememberLazyGridState()
@@ -196,7 +209,7 @@ fun MovieList(viewModel: MovieViewModel, selectedCategory: String) {
         contentPadding = PaddingValues(8.dp)
     ) {
         items(movies.size) { index ->
-            MovieItem(movie = movies[index])
+            MovieItem(movie = movies[index],navController)
         }
 
         //If we still wait to data form API show loading icon
