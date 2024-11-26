@@ -1,14 +1,15 @@
 package com.example.movie_app.Screen
 
-import android.util.Log
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.Button
@@ -24,7 +25,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,6 +44,7 @@ import coil.size.Size
 import com.example.movie_app.Data.Movie
 import com.example.movie_app.ViewModel.MovieViewModel
 import com.example.movie_app.route.Routes
+import androidx.compose.ui.input.key.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,6 +65,8 @@ fun MovieScreen(navController: NavHostController, movieId: Int , viewModel: Movi
     }else{
         favoriteMovies.value.find { it.id == movieId }
     }
+
+    var buttonFocused by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -96,14 +103,41 @@ fun MovieScreen(navController: NavHostController, movieId: Int , viewModel: Movi
             )
         }
     ) { paddingValues ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .padding(paddingValues)
                 .fillMaxSize()
+                .onPreviewKeyEvent { event ->
+                    when (event.key) { //Support for keyboard actions
+                        Key.DirectionDown -> { // click down arrow
+                            buttonFocused = true
+                            true
+                        }
+                        Key.DirectionUp -> { // click up arrow
+                            buttonFocused = false
+                            true
+                        }
+                        Key.Enter -> { // click Enter arrow
+                            if (buttonFocused) {
+                                if (inFavorite) { // swap between function by if this movie is in favorite
+                                    viewModel.deleteFromFavorites(movieId)
+                                } else {
+                                    viewModel.addToFavorites(movieId)
+                                }
+                            }
+                            true
+                        }
+                        else -> false
+                    }
+                }
         ) {
 
             // present movie details
-            MovieDetails(movie, viewModel,inFavorite)
+            movie?.let {
+                item {
+                    MovieDetails(movie = it, viewModel = viewModel, inFavorite = inFavorite, buttonFocused = buttonFocused)
+                }
+            }
         }
     }
 }
@@ -117,6 +151,7 @@ fun MovieDetails(
     movie: Movie?,
     viewModel: MovieViewModel,
     inFavorite: Boolean,
+    buttonFocused: Boolean,
 ) {
     if (movie == null) return
 
@@ -143,32 +178,16 @@ fun MovieDetails(
     }
 
     // Present the name of the movie
-    Text(
-        text = movie.title,
-        modifier = Modifier.padding(8.dp),
-        fontSize = 18.sp
-    )
+    TextCompMovieScreen(movie.title)
 
     // Present the Release Date of the movie
-    Text(
-        text = "Release Date: ${movie.release_date}",
-        modifier = Modifier.padding(8.dp),
-        fontSize = 18.sp
-    )
+    TextCompMovieScreen("Release Date: ${movie.release_date}")
 
     // Present the rating of the movie
-    Text(
-        text = "Rating: ${movie.vote_average}",
-        modifier = Modifier.padding(8.dp),
-        fontSize = 18.sp
-    )
+    TextCompMovieScreen("Rating: ${movie.vote_average}")
 
     // Present the Overview the movie
-    Text(
-        text = "Overview:",
-        modifier = Modifier.padding(8.dp),
-        fontSize = 18.sp
-    )
+    TextCompMovieScreen("Overview:")
 
     BasicText(
         text = movie.overview,
@@ -186,7 +205,9 @@ fun MovieDetails(
             }else{
                 viewModel.addToFavorites(movie.id)
             }},
-            modifier = Modifier.padding(horizontal = 4.dp),
+            modifier = Modifier.padding(horizontal = 4.dp)
+                .focusable()
+                .background(if (buttonFocused) Color.LightGray else Color.White),
             shape = RoundedCornerShape(15.dp),
             colors = ButtonDefaults.buttonColors(
                 contentColor =  Color.White ,
@@ -197,4 +218,16 @@ fun MovieDetails(
             )
         }
     }
+}
+
+/**
+ * Function to display text by string
+ */
+@Composable
+fun TextCompMovieScreen(text: String) {
+    Text(
+        text = text,
+        modifier = Modifier.padding(8.dp),
+        fontSize = 18.sp
+    )
 }

@@ -2,6 +2,8 @@ package com.example.movie_app.Screen
 
 import android.app.Activity
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,7 +48,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.example.movie_app.Data.Movie
 import coil.request.ImageRequest
@@ -54,7 +55,12 @@ import coil.size.Size
 import com.example.movie_app.ViewModel.MovieViewModel
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.navigation.NavHostController
+import androidx.compose.ui.input.key.*
+import androidx.compose.ui.text.TextStyle
+import kotlinx.coroutines.launch
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -122,11 +128,13 @@ fun HomeScreen(navController: NavHostController, viewModel: MovieViewModel) {
  */
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
-fun MovieItem(movie: Movie, navController: NavHostController) {
+fun MovieItem(movie: Movie, navController: NavHostController,isSelected: Boolean = false) {
     Card(
         modifier = Modifier
             .padding(8.dp)
-            .fillMaxWidth(),
+            .fillMaxWidth()
+            .focusable()
+            .background(if (isSelected) Color.Black else Color.White), // background color for current card
         shape = RoundedCornerShape(8.dp),
         elevation = 4.dp,
         onClick ={navController.navigate("movieScreen/${movie.id}")} // Go to movie screen on click
@@ -160,30 +168,28 @@ fun MovieItem(movie: Movie, navController: NavHostController) {
             Spacer(modifier = Modifier.height(8.dp))
 
             // present the movie name
-            Text(
-                text = movie.title,
-                style = MaterialTheme.typography.body1,
-                color = Color.Black,
-                modifier = Modifier.padding(4.dp)
-            )
+            TextComp(movie.title,MaterialTheme.typography.body1 ,Color.Black )
 
             // Present the movie release date
-            Text(
-                text = movie.release_date,
-                style = MaterialTheme.typography.body2,
-                color = Color.Gray,
-                modifier = Modifier.padding(4.dp)
-            )
+            TextComp(movie.release_date,MaterialTheme.typography.body2 ,Color.Gray )
 
             // Present the movie rating
-            Text(
-                text = "Rating : "+movie.vote_average.toString(),
-                style = MaterialTheme.typography.body2,
-                color = Color.Gray,
-                modifier = Modifier.padding(4.dp)
-            )
+            TextComp("Rating : "+movie.vote_average.toString(),MaterialTheme.typography.body2 ,Color.Gray )
         }
     }
+}
+
+/**
+ * Function to display Text by String color and style
+ */
+@Composable
+fun TextComp(text: String, style: TextStyle, color: Color) {
+    Text(
+        text = text,
+        style = style,
+        color = color,
+        modifier = Modifier.padding(4.dp)
+    )
 }
 
 /**
@@ -202,14 +208,66 @@ fun MovieList(viewModel: MovieViewModel, selectedCategory: String, navController
 
     val listState = rememberLazyGridState()
 
+    // current index of movie form lists
+    var selectedIndex by remember { mutableStateOf(0) }
+
+    // Coroutine scope for scrolling
+    val coroutineScope = rememberCoroutineScope()
+
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
-        modifier = Modifier.fillMaxSize(),
         state = listState,
+        modifier = Modifier
+            .fillMaxSize()
+            .onPreviewKeyEvent { event ->  //Support for keyboard actions
+                when {
+                    event.key == Key.DirectionDown && event.type == KeyEventType.KeyDown -> { // click down arrow
+                        if (selectedIndex < movies.size - 2) {
+                            selectedIndex += 2
+                            coroutineScope.launch { // allow scroll
+                                listState.animateScrollToItem(selectedIndex)
+                            }
+                        }
+                        true
+                    }
+                    event.key == Key.DirectionUp && event.type == KeyEventType.KeyDown -> { // click up arrow
+                        if (selectedIndex >= 2) {
+                            selectedIndex -= 2
+                            coroutineScope.launch {// allow scroll
+                                listState.animateScrollToItem(selectedIndex)
+                            }
+                        }
+                        true
+                    }
+                    event.key == Key.DirectionRight && event.type == KeyEventType.KeyDown -> {  // click right arrow
+                        if (selectedIndex % 2 == 0 && selectedIndex < movies.size - 1) {
+                            selectedIndex++
+                            coroutineScope.launch {// allow scroll
+                                listState.animateScrollToItem(selectedIndex)
+                            }
+                        }
+                        true
+                    }
+                    event.key == Key.DirectionLeft && event.type == KeyEventType.KeyDown -> { // click left arrow
+                        if (selectedIndex % 2 == 1) {
+                            selectedIndex--
+                            coroutineScope.launch {// allow scroll
+                                listState.animateScrollToItem(selectedIndex)
+                            }
+                        }
+                        true
+                    }
+                    event.key == Key.Enter && event.type == KeyEventType.KeyDown -> {  // click enter arrow
+                        navController.navigate("movieScreen/${movies[selectedIndex].id}") // go to movie details screen
+                        true
+                    }
+                    else -> false
+                }
+            },
         contentPadding = PaddingValues(8.dp)
     ) {
         items(movies.size) { index ->
-            MovieItem(movie = movies[index],navController)
+            MovieItem(movie = movies[index], navController, index == selectedIndex)
         }
 
         //If we still wait to data form API show loading icon
@@ -246,24 +304,49 @@ fun CategorySelector(
     selectedCategory: String,
     onCategorySelected: (String) -> Unit
 ) {
+
+    // List of Category
+    val categories = listOf("Popular", "Now Playing", "Favorites")
+
+    // current category index form categories list
+    var selectedIndex by remember { mutableStateOf(categories.indexOf(selectedCategory)) }
+
     Row(modifier = Modifier
         .padding(8.dp)
-        .fillMaxWidth(),
+        .fillMaxWidth()
+        .onPreviewKeyEvent { event -> // Support for keyboard actions
+            when {
+                event.key == Key.DirectionRight && event.type == KeyEventType.KeyDown -> { // click right arrow
+                    selectedIndex = (selectedIndex + 1) % categories.size
+                    true
+                }
+                event.key == Key.DirectionLeft && event.type == KeyEventType.KeyDown -> {// click left arrow
+                    selectedIndex = (selectedIndex - 1 + categories.size) % categories.size
+                    true
+                }
+                event.key == Key.Enter && event.type == KeyEventType.KeyDown -> {// click enter arrow
+                    onCategorySelected(categories[selectedIndex])
+                    true
+                }
+                else -> false
+            }
+        },
         horizontalArrangement = Arrangement.SpaceEvenly)
     {
 
-        // List of Category
-        val categories = listOf("Popular", "Now Playing", "Favorites")
-
-        categories.forEach { category ->
+        categories.forEachIndexed  { index , category ->
             Button(
-                onClick = { onCategorySelected(category) },
-                modifier = Modifier.padding(horizontal = 4.dp),
+                onClick = { onCategorySelected(category)
+                            selectedIndex=index
+                          },
+                modifier = Modifier.padding(horizontal = 4.dp)
+                    .focusable(),
                 shape = RoundedCornerShape(15.dp),
                 colors = ButtonDefaults.buttonColors(
                     contentColor =  Color.White ,
-                    containerColor = if (category == selectedCategory) Color.LightGray else Color.DarkGray
+                    containerColor = if (index == selectedIndex) Color.LightGray else Color.DarkGray
                 )
+
             ) {
                 Text(text = category)
             }

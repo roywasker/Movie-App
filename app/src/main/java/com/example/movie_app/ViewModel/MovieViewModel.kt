@@ -102,6 +102,6 @@ class MovieViewModel : ViewModel() {
         val updatedFavorites = favoriteMovies.value.filter { it.id != movieId } // find all movie without the movie to delete
         val deleteMovie = favoriteMovies.value.filter { it.id == movieId } // find the movie to delete
         _favoriteMovies.value = updatedFavorites
-        _movies.value+=deleteMovie
+        _movies.value += deleteMovie
     }
 }
