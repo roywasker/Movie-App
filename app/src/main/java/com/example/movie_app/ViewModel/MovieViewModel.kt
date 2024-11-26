@@ -13,6 +13,7 @@ import androidx.compose.runtime.setValue
 import com.example.movie_app.Data.Movie
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import java.net.SocketTimeoutException
 
 class MovieViewModel : ViewModel() {
 
@@ -34,6 +35,8 @@ class MovieViewModel : ViewModel() {
     private val _favoriteMovies = MutableStateFlow<List<Movie>>(emptyList())
     val favoriteMovies: StateFlow<List<Movie>> = _favoriteMovies
 
+    // Error message
+    var errorMessage = mutableStateOf<String?>(null)
 
     init {
         fetchMovies("Popular")
@@ -45,6 +48,7 @@ class MovieViewModel : ViewModel() {
     fun resetList(){
         currentPage=1
         _movies.value = emptyList()
+        errorMessage.value = null
     }
 
     /**
@@ -54,6 +58,7 @@ class MovieViewModel : ViewModel() {
 
         loading.value = true
         viewModelScope.launch {
+            errorMessage.value = null // reset the error message
             try {
 
                 when (category) {
@@ -61,21 +66,31 @@ class MovieViewModel : ViewModel() {
 
                         //Send a request to the API to get all popular movies
                         val response = movieApi.getPopularMovies(apiKey = ApiKey , page = currentPage)
-                        _movies.value += response.results // add the response to the list
-                        currentPage++
+
+                        if (response.isSuccessful) {
+                            _movies.value += response.body()?.results ?: emptyList() // add the response to the list
+                            currentPage++
+                        } else{
+                            errorMessage.value = "Failed to fetch movies: ${response.message()}"
+                        }
                     }
                     "Now Playing" -> {
 
                         //Send a request to the API to get all Now Play movies
                         val response = movieApi.getNowPlayingMovies(apiKey = ApiKey , page = currentPage)
-                        _movies.value += response.results   // add the response to the list
-                        currentPage++
+
+                        if (response.isSuccessful) {
+                            _movies.value += response.body()?.results ?: emptyList()   // add the response to the list
+                            currentPage++
+                        }else{
+                            errorMessage.value = "Failed to fetch movies: ${response.message()}"
+                        }
                     }
                 }
+            } catch (e: SocketTimeoutException) {
+                errorMessage.value = "Request timed out. Please try again."
             } catch (e: Exception) {
-
-                // add popup to say that we have error and try again
-                Log.e("Movies", "Error: ${e.message}")
+                errorMessage.value = "An error occurred. Please try again."
             }finally {
                 loading.value = false
             }

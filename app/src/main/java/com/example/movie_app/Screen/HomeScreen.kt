@@ -58,8 +58,11 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.navigation.NavHostController
 import androidx.compose.ui.input.key.*
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import kotlinx.coroutines.launch
+import com.example.movie_app.R
+
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -143,6 +146,7 @@ fun MovieItem(movie: Movie, navController: NavHostController,isSelected: Boolean
             modifier = Modifier.padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+
             // Get the image of poster from the API
             val imageState = rememberAsyncImagePainter(
                 model = ImageRequest.Builder(LocalContext.current)
@@ -152,29 +156,36 @@ fun MovieItem(movie: Movie, navController: NavHostController,isSelected: Boolean
             ).state
 
             // Present the poster of the movie
-            imageState.painter?.let {
-                Image(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(6.dp)
-                        .height(250.dp)
-                        .clip(RoundedCornerShape(22.dp)),
-                    painter = it,
-                    contentDescription = movie.title,
-                    contentScale = ContentScale.Crop
-                )
-            }
+            Image(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(6.dp)
+                    .height(250.dp)
+                    .clip(RoundedCornerShape(22.dp)),
+                painter = if (imageState is coil.compose.AsyncImagePainter.State.Success) {
+                    imageState.painter
+                } else {
+                    painterResource(id = R.drawable.image)
+                },
+                contentDescription = movie.title,
+                contentScale = ContentScale.Crop
+            )
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            val title = if (movie.title.isNotEmpty()) movie.title else "Missing movie title"
+            val rating = if (movie.vote_average.isNaN()) "Missing movie rating" else movie.vote_average
+            val release_date = if (movie.release_date.isNotEmpty()) movie.release_date else "Missing movie release date"
+
+
             // present the movie name
-            TextComp(movie.title,MaterialTheme.typography.body1 ,Color.Black )
+            TextComp(title,MaterialTheme.typography.body1 ,Color.Black )
 
             // Present the movie release date
-            TextComp(movie.release_date,MaterialTheme.typography.body2 ,Color.Gray )
+            TextComp(release_date,MaterialTheme.typography.body2 ,Color.Gray )
 
             // Present the movie rating
-            TextComp("Rating : "+movie.vote_average.toString(),MaterialTheme.typography.body2 ,Color.Gray )
+            TextComp("Rating : $rating",MaterialTheme.typography.body2 ,Color.Gray )
         }
     }
 }
@@ -204,7 +215,12 @@ fun MovieList(viewModel: MovieViewModel, selectedCategory: String, navController
     }else{
         viewModel.movies.collectAsState()
     }
+
+    //Loading state
     val isLoading by viewModel.loading
+
+    //Error message
+    val errorMessage by viewModel.errorMessage
 
     val listState = rememberLazyGridState()
 
@@ -214,85 +230,131 @@ fun MovieList(viewModel: MovieViewModel, selectedCategory: String, navController
     // Coroutine scope for scrolling
     val coroutineScope = rememberCoroutineScope()
 
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
-        state = listState,
-        modifier = Modifier
-            .fillMaxSize()
-            .onPreviewKeyEvent { event ->  //Support for keyboard actions
-                when {
-                    event.key == Key.DirectionDown && event.type == KeyEventType.KeyDown -> { // click down arrow
-                        if (selectedIndex < movies.size - 2) {
-                            selectedIndex += 2
-                            coroutineScope.launch { // allow scroll
-                                listState.animateScrollToItem(selectedIndex)
-                            }
-                        }
-                        true
-                    }
-                    event.key == Key.DirectionUp && event.type == KeyEventType.KeyDown -> { // click up arrow
-                        if (selectedIndex >= 2) {
-                            selectedIndex -= 2
-                            coroutineScope.launch {// allow scroll
-                                listState.animateScrollToItem(selectedIndex)
-                            }
-                        }
-                        true
-                    }
-                    event.key == Key.DirectionRight && event.type == KeyEventType.KeyDown -> {  // click right arrow
-                        if (selectedIndex % 2 == 0 && selectedIndex < movies.size - 1) {
-                            selectedIndex++
-                            coroutineScope.launch {// allow scroll
-                                listState.animateScrollToItem(selectedIndex)
-                            }
-                        }
-                        true
-                    }
-                    event.key == Key.DirectionLeft && event.type == KeyEventType.KeyDown -> { // click left arrow
-                        if (selectedIndex % 2 == 1) {
-                            selectedIndex--
-                            coroutineScope.launch {// allow scroll
-                                listState.animateScrollToItem(selectedIndex)
-                            }
-                        }
-                        true
-                    }
-                    event.key == Key.Enter && event.type == KeyEventType.KeyDown -> {  // click enter arrow
-                        navController.navigate("movieScreen/${movies[selectedIndex].id}") // go to movie details screen
-                        true
-                    }
-                    else -> false
-                }
-            },
-        contentPadding = PaddingValues(8.dp)
-    ) {
-        items(movies.size) { index ->
-            MovieItem(movie = movies[index], navController, index == selectedIndex)
-        }
+    // Display error message if we get some
+    if (errorMessage != null) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = errorMessage!!,
+                    color = Color.Black,
+                    fontSize = 18.sp
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = { viewModel.fetchMovies(selectedCategory) },
+                    colors = ButtonDefaults.buttonColors(
+                        contentColor =  Color.White ,
+                        containerColor =  Color.DarkGray
+                    )
 
-        //If we still wait to data form API show loading icon
-        if (isLoading) {
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator()
+                    Text(text = "Try Again",
+                        color = Color.White)
                 }
             }
         }
-    }
+    }else {
 
-    // If we in end of the colum get more movie by send new request to API
-    LaunchedEffect(listState) {
-        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
-            .collect { lastVisibleItemIndex ->
-                if (lastVisibleItemIndex == movies.size - 1 && !isLoading) {
-                    viewModel.fetchMovies(selectedCategory)
+        // Get window info
+        val windowInfo = rememberWindowInfo()
+
+        // Changing the number of items in a row according to the screen width
+        val columns = when {
+            windowInfo.screenWidthInfo is WindowInfo.WindowType.Compact -> 2
+            windowInfo.screenWidthInfo is WindowInfo.WindowType.Medium -> 3
+            windowInfo.screenWidthInfo is WindowInfo.WindowType.Expanded -> 4
+            else -> 2
+        }
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(columns),
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .onPreviewKeyEvent { event ->  //Support for keyboard actions
+                    when {
+                        event.key == Key.DirectionDown && event.type == KeyEventType.KeyDown -> { // click down arrow
+                            if (selectedIndex + columns < movies.size) {
+                                selectedIndex += columns
+                                coroutineScope.launch { // allow scroll
+                                    listState.animateScrollToItem(selectedIndex)
+                                }
+                            }
+                            true
+                        }
+
+                        event.key == Key.DirectionUp && event.type == KeyEventType.KeyDown -> { // click up arrow
+                            if (selectedIndex - columns >= 0) {
+                                selectedIndex -= columns
+                                coroutineScope.launch {// allow scroll
+                                    listState.animateScrollToItem(selectedIndex)
+                                }
+                            }
+                            true
+                        }
+
+                        event.key == Key.DirectionRight && event.type == KeyEventType.KeyDown -> {  // click right arrow
+                            if ((selectedIndex + 1) % columns != 0 && selectedIndex + 1 < movies.size) {
+                                selectedIndex++
+                                coroutineScope.launch {// allow scroll
+                                    listState.animateScrollToItem(selectedIndex)
+                                }
+                            }
+                            true
+                        }
+
+                        event.key == Key.DirectionLeft && event.type == KeyEventType.KeyDown -> { // click left arrow
+                            if (selectedIndex % columns != 0) {
+                                selectedIndex--
+                                coroutineScope.launch {// allow scroll
+                                    listState.animateScrollToItem(selectedIndex)
+                                }
+                            }
+                            true
+                        }
+
+                        event.key == Key.Enter && event.type == KeyEventType.KeyDown -> {  // click enter arrow
+                            navController.navigate("movieScreen/${movies[selectedIndex].id}") // go to movie details screen
+                            true
+                        }
+
+                        else -> false
+                    }
+                },
+            contentPadding = PaddingValues(8.dp)
+        ) {
+            items(movies.size) { index ->
+                MovieItem(movie = movies[index], navController, index == selectedIndex)
+            }
+
+            //If we still wait to data form API show loading icon
+            if (isLoading) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
                 }
             }
+        }
+
+        // If we in end of the colum get more movie by send new request to API
+        LaunchedEffect(listState) {
+            snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
+                .collect { lastVisibleItemIndex ->
+                    if (lastVisibleItemIndex == movies.size - 1 && !isLoading) {
+                        viewModel.fetchMovies(selectedCategory)
+                    }
+                }
+        }
     }
 }
 
@@ -348,7 +410,8 @@ fun CategorySelector(
                 )
 
             ) {
-                Text(text = category)
+                Text(text = category,
+                    color = if (index == selectedIndex) Color.Black else Color.White)
             }
         }
     }

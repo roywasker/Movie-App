@@ -45,6 +45,8 @@ import com.example.movie_app.Data.Movie
 import com.example.movie_app.ViewModel.MovieViewModel
 import com.example.movie_app.route.Routes
 import androidx.compose.ui.input.key.*
+import androidx.compose.ui.res.painterResource
+import com.example.movie_app.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -164,33 +166,41 @@ fun MovieDetails(
     ).state
 
     // Present the poster of the movie
-    imageState.painter?.let {
-        Image(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(6.dp)
-                .height(250.dp)
-                .clip(RoundedCornerShape(22.dp)),
-            painter = it,
-            contentDescription = movie.title,
-            contentScale = ContentScale.Crop
-        )
-    }
+    Image(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(6.dp)
+            .height(250.dp)
+            .clip(RoundedCornerShape(22.dp)),
+        painter = if (imageState is coil.compose.AsyncImagePainter.State.Success) {
+            imageState.painter
+        } else {
+            painterResource(id = R.drawable.image)
+        },
+        contentDescription = movie.title,
+        contentScale = ContentScale.Crop
+    )
+
+
+    val title = if (movie.title.isNotEmpty()) movie.title else "Missing movie title"
+    val rating = if (movie.vote_average.isNaN()) "Missing movie rating" else movie.vote_average
+    val release_date = if (movie.release_date.isNotEmpty()) movie.release_date else "Missing movie release date"
+    val overview = if (movie.overview.isNotEmpty()) movie.overview else "Missing movie overview"
 
     // Present the name of the movie
-    TextCompMovieScreen(movie.title)
+    TextCompMovieScreen(title)
 
     // Present the Release Date of the movie
-    TextCompMovieScreen("Release Date: ${movie.release_date}")
+    TextCompMovieScreen("Release Date: $release_date")
 
     // Present the rating of the movie
-    TextCompMovieScreen("Rating: ${movie.vote_average}")
+    TextCompMovieScreen("Rating: $rating")
 
     // Present the Overview the movie
     TextCompMovieScreen("Overview:")
 
     BasicText(
-        text = movie.overview,
+        text = overview,
         modifier = Modifier.padding(8.dp)
     )
 
@@ -214,7 +224,8 @@ fun MovieDetails(
                 containerColor = Color.DarkGray
             )){
             Text(text = if (!inFavorite) "add to favorite" else "remove from favorite" ,
-                fontSize = 18.sp
+                fontSize = 18.sp,
+                color = Color.White
             )
         }
     }

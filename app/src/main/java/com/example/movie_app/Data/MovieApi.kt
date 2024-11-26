@@ -1,5 +1,6 @@
 package com.example.movie_app.Data
 
+import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.Query
 
@@ -11,12 +12,12 @@ interface MovieApi {
     suspend fun getPopularMovies(
         @Query("api_key") apiKey: String,
         @Query("page") page: Int = 1
-    ): MovieResponse
+    ): Response<MovieResponse>
 
     // Send request to now playing movie
     @GET("movie/now_playing")
     suspend fun getNowPlayingMovies(
         @Query("api_key") apiKey: String,
         @Query("page") page: Int = 1
-    ): MovieResponse
+    ): Response<MovieResponse>
 }

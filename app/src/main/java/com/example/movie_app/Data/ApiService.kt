@@ -4,6 +4,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
+import java.util.concurrent.TimeUnit
 
 object ApiService {
 
@@ -17,6 +18,8 @@ object ApiService {
     //Creating an OkHttpClient object to send HTTP requests
     private val httpClient = OkHttpClient.Builder()
         .addInterceptor(loggingInterceptor)
+        .connectTimeout(2, TimeUnit.SECONDS) //Login time
+        .readTimeout(3, TimeUnit.SECONDS)   //read time
         .build()
 
     //Create a Retrofit object with all the settings needed to receive the requests
