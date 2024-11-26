@@ -1,6 +1,7 @@
 package com.example.movie_app.Screen
 
 import android.app.Activity
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
@@ -72,6 +73,13 @@ fun HomeScreen(navController: NavHostController, viewModel: MovieViewModel) {
 
     //current context
     val context = LocalContext.current
+
+    BackHandler {
+        if (context is Activity) { // close the app
+            context.finish()
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(

@@ -10,9 +10,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.movie_app.Data.Room.DatabaseProvider
 import com.example.movie_app.Screen.HomeScreen
 import com.example.movie_app.Screen.MovieScreen
 import com.example.movie_app.ViewModel.MovieViewModel
+import com.example.movie_app.ViewModel.MovieViewModelFactory
 import com.example.movie_app.route.Routes
 
 class MainActivity : ComponentActivity() {
@@ -20,8 +22,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
 
+            //initialization DB
+            val db = DatabaseProvider.getDatabase(LocalContext.current)
+
+            //initialization Navigation
             val navController = rememberNavController()
-            val viewModel: MovieViewModel = viewModel(LocalContext.current as ComponentActivity) // Get ViewModel instance
+
+            //initialization the view model
+            val viewModel: MovieViewModel = viewModel(factory = MovieViewModelFactory(db))
 
             NavHost(navController = navController, startDestination = "HomeScreen", builder = {
                 composable(Routes.homeScreen,){ // move to home screen

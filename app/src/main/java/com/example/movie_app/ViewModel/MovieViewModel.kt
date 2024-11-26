@@ -5,17 +5,19 @@ import androidx.lifecycle.viewModelScope
 import com.example.movie_app.Data.ApiService
 import com.example.movie_app.Data.MovieApi
 import kotlinx.coroutines.launch
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.example.movie_app.Data.Movie
+import com.example.movie_app.Data.Room.AppDatabase
+import com.example.movie_app.Data.Room.toEntity
+import com.example.movie_app.Data.Room.toMovie
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.net.SocketTimeoutException
 
-class MovieViewModel : ViewModel() {
+class MovieViewModel(private val database: AppDatabase) : ViewModel() {
 
     //Creating an object used to send requests to the API
     private val movieApi = ApiService.createApi<MovieApi>()
@@ -40,6 +42,7 @@ class MovieViewModel : ViewModel() {
 
     init {
         fetchMovies("Popular")
+        fetchFavoriteMovies()
     }
 
     /**
@@ -98,25 +101,33 @@ class MovieViewModel : ViewModel() {
     }
 
     /**
-     * A function to add movie to list of favorite movie
+     * A function to add movie to list of favorite movie and update DB
      */
-    fun addToFavorites(movieId : Int) {
-        val inFavorite = favoriteMovies.value.find { it.id == movieId } // Check if the movie is in the list.
-        val movie = movies.value.find { it.id == movieId }
-        if (inFavorite == null){
-            if (movie != null) {
-                _favoriteMovies.value += movie
-            }
+    fun addToFavorite(movie: Movie) {
+        viewModelScope.launch {
+            database.favoriteMovieDao().insertMovie(movie.toEntity())
+            fetchFavoriteMovies()
         }
     }
 
     /**
-     * A function to delete movie from list of favorite movie
+     * Function to remove movie from favorite and update DB
      */
-    fun deleteFromFavorites(movieId : Int) {
-        val updatedFavorites = favoriteMovies.value.filter { it.id != movieId } // find all movie without the movie to delete
-        val deleteMovie = favoriteMovies.value.filter { it.id == movieId } // find the movie to delete
-        _favoriteMovies.value = updatedFavorites
-        _movies.value += deleteMovie
+    fun removeFromFavorite(movie: Movie) {
+        viewModelScope.launch {
+            database.favoriteMovieDao().deleteMovie(movie.toEntity())
+            fetchFavoriteMovies()
+        }
+        _movies.value += movie
+    }
+
+    /**
+     * Function fetch all the favorite movie from DB
+     */
+    private fun fetchFavoriteMovies() {
+        viewModelScope.launch {
+            val favoriteMoviesList = database.favoriteMovieDao().getAllFavoriteMovies()
+            _favoriteMovies.value = favoriteMoviesList.map { it.toMovie() } // Convert MovieEntity to Movie
+        }
     }
 }

@@ -1,5 +1,6 @@
 package com.example.movie_app.Screen
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
@@ -70,6 +71,12 @@ fun MovieScreen(navController: NavHostController, movieId: Int , viewModel: Movi
 
     var buttonFocused by remember { mutableStateOf(false) }
 
+    BackHandler {
+        viewModel.resetList()
+        viewModel.fetchMovies("Popular")
+        navController.navigate(Routes.homeScreen)
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -122,9 +129,13 @@ fun MovieScreen(navController: NavHostController, movieId: Int , viewModel: Movi
                         Key.Enter -> { // click Enter arrow
                             if (buttonFocused) {
                                 if (inFavorite) { // swap between function by if this movie is in favorite
-                                    viewModel.deleteFromFavorites(movieId)
+                                    if (movie != null) {
+                                        viewModel.addToFavorite(movie)
+                                    }
                                 } else {
-                                    viewModel.addToFavorites(movieId)
+                                    if (movie != null) {
+                                        viewModel.removeFromFavorite(movie)
+                                    }
                                 }
                             }
                             true
@@ -211,9 +222,9 @@ fun MovieDetails(
     ) {
         Button(onClick ={
             if (inFavorite){
-                viewModel.deleteFromFavorites(movie.id)
+                viewModel.removeFromFavorite(movie)
             }else{
-                viewModel.addToFavorites(movie.id)
+                viewModel.addToFavorite(movie)
             }},
             modifier = Modifier.padding(horizontal = 4.dp)
                 .focusable()
